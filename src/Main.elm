@@ -1,5 +1,6 @@
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Minefield
 import Random
 
 
