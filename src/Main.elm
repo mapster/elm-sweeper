@@ -1,11 +1,12 @@
+import Browser exposing (Document, document)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Minefield exposing (Cell, Content(Fresh, Hidden, Visible), Minefield, isFresh, isMine)
+import Minefield exposing (Cell, Content(..), Minefield, isFresh, isMine)
 import Random
 
 
-main = Html.program
+main = Browser.document
     { init = init
     , view = view
     , update = update
@@ -22,8 +23,8 @@ type GameState
     = Playing
     | GameOver
 
-init : (Model, Cmd Msg)
-init =
+init : () -> (Model, Cmd Msg)
+init _ =
     (Model Playing <| Minefield.init 10, Cmd.none)
 
 subscriptions : Model -> Sub Msg
@@ -61,7 +62,7 @@ update msg model =
                 ({model | field = Minefield.replace updCell model.field}, Cmd.none)
 
         NewGame ->
-            init
+            init ()
 
 updateCell cell =
     case cell.content of
@@ -70,14 +71,19 @@ updateCell cell =
         Visible _ -> cell
 
 -- View
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    div []
-        [ h1 [] [ text "MineSweepr" ]
-        , button [ onClick NewGame] [ text "New Game"]
-        , viewField model.field
-        , viewState model.state
+    { title = "Elm-sweeper"
+    , body = 
+        [
+            div []
+                [ h1 [] [ text "Elm-sweeper" ]
+                , button [ onClick NewGame] [ text "New Game"]
+                , viewField model.field
+                , viewState model.state
+                ]
         ]
+    }
 
 viewState state =
     case state of
@@ -99,5 +105,5 @@ viewCell field cell =
             if hasMine then
                 div [ class "cell mine" ] []
             else
-                div [ class "cell" ] [ text <| toString <| Minefield.adjacent cell field ]
+                div [ class "cell" ] [ text <| String.fromInt <| Minefield.adjacent cell field ]
         _ -> div [ class "cell hidden", onClick <| ClickCell cell] []

@@ -4,10 +4,9 @@
     <meta charset="UTF-8">
     <title>Elm minesweepr</title>
     <link rel="stylesheet" href="assets/style.css">
+    <script src="elm.js"></script>
 </head>
 <body>
-    <div id="app-mount"></div>
-    <script src="elm.js"></script>
-    <script>Elm.Main.embed(document.querySelector("#app-mount"))</script>
+    <script>var app = Elm.Main.init()</script>
 </body>
 </html>

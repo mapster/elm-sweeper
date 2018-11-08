@@ -1,2 +1,2 @@
 #!/bin/bash
-elm-live --output elm.js src/Main.elm --debug
+elm-live src/Main.elm --open -- --output elm.js --debug
