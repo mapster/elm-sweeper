@@ -1,3 +1,5 @@
 /.idea
 /elm.js
 /elm-stuff
+node_modules
+.vscode
