@@ -2,53 +2,48 @@ import Browser exposing (Document, document)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
-import Minefield exposing (Cell, Content(..), Minefield, isFresh, isMine)
 import Random
+import Json.Decode as Decode
 
+import GameModel exposing(..)
+import Minefield exposing (Cell, Content(..), Minefield, isFresh, isMine)
+import Cache
 
 main =
     Browser.document
         { init = init
         , view = view
-        , update = update
+        , update = updateAndCache
         , subscriptions = subscriptions
         }
 
-
-type alias Model =
-    { state : GameState
-    , difficulty : Int
-    , field : Minefield
-    }
-
-
-type GameState
-    = Playing
-    | GameOver
-
-
-init : () -> ( Model, Cmd Msg )
+init : () -> ( GameModel, Cmd Msg )
 init _ =
-    ( Model Playing 37 <| Minefield.init 10, Cmd.none )
+    ( GameModel Playing 37 <| Minefield.init 10, Cmd.none )
 
 
-subscriptions : Model -> Sub Msg
+subscriptions : GameModel -> Sub Msg
 subscriptions model =
-    Sub.none
-
-
+    Cache.loadModel LoadFromCache
+    -- Sub.none
 
 -- Update
-
 
 type Msg
     = ClickCell Cell
     | InitCell Cell Float
     | NewGame
     | Difficulty String
+    | LoadFromCache (Result Decode.Error GameModel)
 
+updateAndCache : Msg -> GameModel -> ( GameModel, Cmd Msg)
+updateAndCache msg model =
+    let
+        (newModel, cmd) = update msg model
+    in
+        (newModel, Cmd.batch [cmd, Cache.cacheModel newModel] )
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> GameModel -> ( GameModel, Cmd Msg )
 update msg model =
     case msg of
         Difficulty difficulty ->
@@ -76,17 +71,24 @@ update msg model =
                     else
                         model.state
             in
-            ( { model | field = minefield, state = state }, cmd )
+                ( { model | field = minefield, state = state }, cmd )
 
         InitCell cell rnJesus ->
             let
                 updCell =
                     { cell | content = Hidden <| rnJesus <= ( toFloat model.difficulty ) / 100  }
             in
-            ( { model | field = Minefield.replace updCell model.field }, Cmd.none )
+                ( { model | field = Minefield.replace updCell model.field }, Cmd.none )
 
         NewGame ->
             ( { model | state = Playing, field = Minefield.init 10 }, Cmd.none )
+
+        LoadFromCache result ->
+            case result of
+                Ok loadedModel ->
+                    (loadedModel, Cmd.none)
+                Err _ -> 
+                    (model, Cmd.none)
 
 
 updateCell cell =
@@ -105,7 +107,7 @@ updateCell cell =
 -- View
 
 
-view : Model -> Browser.Document Msg
+view : GameModel -> Browser.Document Msg
 view model =
     { title = "Elm-sweeper"
     , body =

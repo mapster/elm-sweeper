@@ -2,7 +2,7 @@ module Minefield exposing (Cell, Content(..), Minefield, adjacent, adjacentRel, 
 
 import Array exposing (Array)
 import Maybe exposing (andThen)
-
+import Json.Decode as Decode
 
 adjacentRel =
     [ ( -1, -1 ), ( -1, 0 ), ( -1, 1 ), ( 0, -1 ), ( 0, 1 ), ( 1, -1 ), ( 1, 0 ), ( 1, 1 ) ]
@@ -23,7 +23,6 @@ type Content
     = Fresh
     | Hidden Bool
     | Visible Bool
-
 
 init dim =
     Array.initialize dim (Cell Fresh)

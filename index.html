@@ -7,6 +7,11 @@
     <script src="elm.js"></script>
 </head>
 <body>
-    <script>var app = Elm.Main.init()</script>
+    <script>
+        var app = Elm.Main.init();
+        
+        app.ports.loadCache.send(JSON.parse(localStorage.getItem('elmsweeperCache')))
+        app.ports.cache.subscribe(data => localStorage.setItem('elmsweeperCache', JSON.stringify(data)));
+    </script>
 </body>
 </html>
