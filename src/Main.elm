@@ -1,13 +1,15 @@
+module Main exposing (Msg(..), clickCell, init, initCmd, main, subscriptions, update, updateAndCache, view, viewCell, viewField, viewRow, viewState)
+
 import Browser exposing (Document, document)
+import Cache
+import GameModel exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
-import Random
 import Json.Decode as Decode
+import Minefield exposing (Cell, Content(..), Minefield, isFresh)
+import Random
 
-import GameModel exposing(..)
-import Minefield exposing (Cell, Content(..), Minefield, isFresh, isMine)
-import Cache
 
 main =
     Browser.document
@@ -17,15 +19,16 @@ main =
         , subscriptions = subscriptions
         }
 
+
 init : () -> ( GameModel, Cmd Msg )
 init _ =
-    ( GameModel Playing 37 <| Minefield.init 10, Cmd.none )
+    ( GameModel FreshGame 37 <| Minefield.init 10, Cmd.none )
 
 
 subscriptions : GameModel -> Sub Msg
 subscriptions model =
     Cache.loadModel LoadFromCache
-    -- Sub.none
+
 
 -- Update
 
@@ -36,12 +39,15 @@ type Msg
     | Difficulty String
     | LoadFromCache (Result Decode.Error GameModel)
 
-updateAndCache : Msg -> GameModel -> ( GameModel, Cmd Msg)
+
+updateAndCache : Msg -> GameModel -> ( GameModel, Cmd Msg )
 updateAndCache msg model =
     let
-        (newModel, cmd) = update msg model
+        ( newModel, cmd ) =
+            update msg model
     in
-        (newModel, Cmd.batch [cmd, Cache.cacheModel newModel] )
+    ( newModel, Cmd.batch [ cmd, Cache.cacheModel newModel ] )
+
 
 update : Msg -> GameModel -> ( GameModel, Cmd Msg )
 update msg model =
@@ -51,47 +57,72 @@ update msg model =
 
         ClickCell cell ->
             let
-                updCell =
-                    updateCell cell
-
-                minefield =
-                    Minefield.replace updCell model.field
-
-                cmd =
-                    Minefield.rows minefield
-                        |> List.foldl (++) []
+                initAdjacent = 
+                    Minefield.adjacent cell model.field
                         |> List.filter isFresh
-                        |> List.map (\c -> Random.generate (InitCell c) (Random.float 0 1))
+                        |> List.map initCmd
                         |> Cmd.batch
-
-                state =
-                    if isMine cell then
-                        GameOver
-
-                    else
-                        model.state
             in
-                ( { model | field = minefield, state = state }, cmd )
+            case cell.content of
+                Fresh ->
+                    case model.state of
+                        FreshGame ->
+                            ( updateModel model { cell | content = Visible False}, initAdjacent )
+
+                        _ ->
+                            ( model, Cmd.batch [(initCmd { cell | content = Visible False }), initAdjacent] )
+
+                Hidden hasMine ->
+                    ( updateModel model { cell | content = Visible hasMine } , initAdjacent )
+
+                Visible _ ->
+                    ( model, Cmd.none )
 
         InitCell cell rnJesus ->
             let
-                updCell =
-                    { cell | content = Hidden <| rnJesus <= ( toFloat model.difficulty ) / 100  }
+                isMine =
+                    rnJesus <= toFloat model.difficulty / 100
             in
-                ( { model | field = Minefield.replace updCell model.field }, Cmd.none )
+            case cell.content of
+                Visible _ ->
+                    ( updateModel model { cell | content = Visible isMine } , Cmd.none)
+
+                _ ->
+                    ( updateModel model { cell | content = Hidden isMine } , Cmd.none )
 
         NewGame ->
-            ( { model | state = Playing, field = Minefield.init 10 }, Cmd.none )
+            ( { model | state = FreshGame, field = Minefield.init 10 }, Cmd.none )
 
         LoadFromCache result ->
             case result of
                 Ok loadedModel ->
-                    (loadedModel, Cmd.none)
-                Err _ -> 
-                    (model, Cmd.none)
+                    ( loadedModel, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
+
+updateModel : GameModel -> Cell -> GameModel
+updateModel model cell =
+    let 
+        field = Minefield.replace cell model.field
+        state =
+            case cell.content of
+                Visible True ->
+                    GameOver
+                
+                _ -> 
+                    model.state
+    in
+    {model | field = field, state = state}
+
+-- Create command to fetch a random value and send an InitCell message
+initCmd : Cell -> Cmd Msg
+initCmd cell =
+    Random.generate (InitCell cell) (Random.float 0 1)
 
 
-updateCell cell =
+clickCell : Cell -> Cell
+clickCell cell =
     case cell.content of
         Fresh ->
             { cell | content = Visible False }
@@ -128,11 +159,11 @@ view model =
 
 viewState state =
     case state of
-        Playing ->
-            div [] []
-
         GameOver ->
             h2 [] [ text "Game Over!" ]
+
+        _ ->
+            div [] []
 
 
 viewField field =
@@ -150,7 +181,12 @@ viewCell field cell =
                 div [ class "cell mine" ] []
 
             else
-                div [ class "cell" ] [ text <| String.fromInt <| Minefield.adjacent cell field ]
+                div [ class "cell" ] [ text <| String.fromInt <| Minefield.adjacentMines cell field ]
 
+        -- Hidden _ ->
+        --     div [ class "cell hidden", onClick <| ClickCell cell ] [ text "H"]
+            
+        -- Fresh ->
+        --     div [ class "cell hidden", onClick <| ClickCell cell ] [ text "F"]
         _ ->
             div [ class "cell hidden", onClick <| ClickCell cell ] []

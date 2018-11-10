@@ -35,6 +35,8 @@ encodeState state =
             Encode.string "Playing"
         GameOver ->
             Encode.string "GameOver"
+        FreshGame ->
+            Encode.string "FreshGame"
 
 modelDecoder : Decode.Decoder GameModel
 modelDecoder =
@@ -52,6 +54,8 @@ stateDecoder =
                     Decode.succeed Playing
                 "GameOver" ->
                     Decode.succeed GameOver
+                "FreshGame" ->
+                    Decode.succeed FreshGame
                 other ->
                     Decode.fail <| "Unknown state: " ++ other
         )

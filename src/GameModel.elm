@@ -11,3 +11,4 @@ type alias GameModel =
 type GameState
     = Playing
     | GameOver
+    | FreshGame

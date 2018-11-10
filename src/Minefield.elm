@@ -1,4 +1,4 @@
-module Minefield exposing (Cell, Content(..), Minefield, adjacent, adjacentRel, get, init, isFresh, isMine, replace, rows)
+module Minefield exposing (Cell, Content(..), Minefield, adjacent, adjacentMines, get, init, isFresh, isMine, replace, rows)
 
 import Array exposing (Array)
 import Maybe exposing (andThen)
@@ -72,9 +72,14 @@ get field ( r, c ) =
     Array.get r field
         |> andThen (Array.get c)
 
-
+adjacent : Cell -> Minefield -> List Cell
 adjacent cell field =
     List.map (\( r, c ) -> ( cell.row + r, cell.col + c )) adjacentRel
         |> List.filterMap (get field)
+
+
+adjacentMines : Cell -> Minefield -> Int
+adjacentMines cell field =
+    adjacent cell field
         |> List.filter isMine
         |> List.length
