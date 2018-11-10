@@ -1,7 +1,7 @@
 import Browser exposing (Document, document)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, onInput)
 import Minefield exposing (Cell, Content(..), Minefield, isFresh, isMine)
 import Random
 
@@ -17,6 +17,7 @@ main =
 
 type alias Model =
     { state : GameState
+    , difficulty : Int
     , field : Minefield
     }
 
@@ -28,7 +29,7 @@ type GameState
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Playing <| Minefield.init 10, Cmd.none )
+    ( Model Playing 37 <| Minefield.init 10, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -44,11 +45,15 @@ type Msg
     = ClickCell Cell
     | InitCell Cell Float
     | NewGame
+    | Difficulty String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Difficulty difficulty ->
+            ( { model | difficulty = Maybe.withDefault model.difficulty <| String.toInt difficulty }, Cmd.none )
+
         ClickCell cell ->
             let
                 updCell =
@@ -76,12 +81,12 @@ update msg model =
         InitCell cell rnJesus ->
             let
                 updCell =
-                    { cell | content = Hidden (rnJesus <= 0.37) }
+                    { cell | content = Hidden <| rnJesus <= ( toFloat model.difficulty ) / 100  }
             in
             ( { model | field = Minefield.replace updCell model.field }, Cmd.none )
 
         NewGame ->
-            init ()
+            ( { model | state = Playing, field = Minefield.init 10 }, Cmd.none )
 
 
 updateCell cell =
@@ -104,8 +109,13 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Elm-sweeper"
     , body =
-        [ div []
+        [ div [ class "app" ]
             [ h1 [] [ text "Elm-sweeper" ]
+            , div []
+                [ text "Difficulty: "
+                , input [ type_ "range", Html.Attributes.min "0", Html.Attributes.max "100", value <| String.fromInt model.difficulty, onInput Difficulty ] []
+                , text <| String.fromInt <| model.difficulty
+                ]
             , button [ onClick NewGame ] [ text "New Game" ]
             , viewField model.field
             , viewState model.state
