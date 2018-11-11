@@ -8,7 +8,6 @@ import Random
 adjacentRel =
     [ ( -1, -1 ), ( -1, 0 ), ( -1, 1 ), ( 0, -1 ), ( 0, 1 ), ( 1, -1 ), ( 1, 0 ), ( 1, 1 ) ]
 
-
 type alias Minefield =
     Array (Array Cell)
 
@@ -26,9 +25,9 @@ type Content
     | Visible Bool Int
 
 type Msg
-    = ClickFreshCell Cell (List Cell) (Float, List Float)
-    | ClickFirstCell Cell (List Cell) (List Float)
-    | ClickHiddenCell Cell (List Cell) (List Float)
+    = ClickFreshCell Cell (List Cell) (Bool, List Bool)
+    | ClickFirstCell Cell (List Cell) (List Bool)
+    | ClickHiddenCell Cell (List Cell) (List Bool)
 
 init dim =
     Array.initialize dim (Cell Fresh)
@@ -40,14 +39,14 @@ rows field =
     Array.map Array.toList field
         |> Array.toList
 
-clickCell : Cell -> Minefield -> Cmd Msg
-clickCell cell field =
+clickCell : Random.Generator Bool -> Cell -> Minefield -> Cmd Msg
+clickCell mineGenerator cell field =
     let
         adjacentFresh = 
             adjacent cell field
                 |> List.filter isFresh
 
-        adjacentGenerator = Random.list (List.length adjacentFresh) (Random.float 0 1)
+        adjacentGenerator = Random.list (List.length adjacentFresh) mineGenerator
     in
     case cell.content of
         Visible _ _ ->
@@ -60,39 +59,37 @@ clickCell cell field =
             if  all isFresh field then
                 Random.generate (ClickFirstCell cell adjacentFresh) adjacentGenerator
             else
-                Random.pair (Random.float 0 1) adjacentGenerator
+                Random.pair mineGenerator adjacentGenerator
                     |> Random.generate (ClickFreshCell cell adjacentFresh)
-                
-            
+
+update2 : (Minefield -> Cell) -> List Cell -> List Bool -> Minefield -> Minefield
+update2 updateCell freshCells freshCellsRnJesus field =
+    let
+        updField = 
+            List.map2 asHidden freshCells freshCellsRnJesus
+                |> replaceAll field
+    in
+        replace (updateCell updField) updField
+
 update : Msg -> Minefield -> Minefield
 update msg field =
-    let
-        (freshCells, adjacentRnJesus) =
-            case msg of
-                ClickFreshCell _ fresh (cellRnJesus, theAdjacentRnJesus) ->
-                    (fresh, theAdjacentRnJesus)
+    case msg of
+        ClickFirstCell clickedCell freshCells freshCellsRnJesus ->
+            update2 ( asVisible clickedCell False) freshCells freshCellsRnJesus field
 
-                ClickFirstCell _ fresh theAdjacentRnJesus ->
-                    (fresh, theAdjacentRnJesus)
+        ClickFreshCell clickedCell freshCells ( clickedRnJesus, freshCellsRnJesus ) ->
+            update2 ( asVisible clickedCell clickedRnJesus ) freshCells freshCellsRnJesus field
 
-                ClickHiddenCell _ fresh theAdjacentRnJesus ->
-                    (fresh, theAdjacentRnJesus)
+        ClickHiddenCell clickedCell freshCells freshCellsRnJesus ->
+            update2 ( asVisible clickedCell ( isMine clickedCell ) ) freshCells freshCellsRnJesus field
 
-        (cell, cellContent) =
-            case msg of
-                ClickFreshCell clickedCell _ (cellRnJesus, _) ->
-                    (clickedCell, Visible (cellRnJesus <= 0.37))
+asHidden : Cell -> Bool -> Cell
+asHidden cell hasMine =
+    { cell | content = Hidden hasMine }
 
-                ClickFirstCell clickedCell _ _ ->
-                    (clickedCell, Visible False)
-
-                ClickHiddenCell clickedCell _ _ ->
-                    (clickedCell, Visible <| isMine clickedCell)
-        
-        updField = replaceAll field (List.map2 (\c f -> { c | content = Hidden (f <= 0.37) } ) freshCells adjacentRnJesus)
-    in
-    replace {cell | content = cellContent (adjacentMines cell updField) } updField
-
+asVisible : Cell -> Bool -> Minefield -> Cell
+asVisible cell hasMine field =
+    { cell | content = Visible hasMine (adjacentMines cell field) } 
 
 replaceAll : Minefield -> List Cell -> Minefield
 replaceAll field cells =

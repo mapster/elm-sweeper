@@ -46,6 +46,9 @@ updateAndCache msg model =
     in
     ( newModel, Cmd.batch [ cmd, Cache.cacheModel newModel ] )
 
+mineGenerator : Int -> Random.Generator Bool
+mineGenerator difficulty =
+    Random.weighted (toFloat difficulty, True) [ ( toFloat <| 100 - difficulty, False) ]
 
 update : Msg -> GameModel -> ( GameModel, Cmd Msg )
 update msg model =
@@ -54,7 +57,10 @@ update msg model =
             ( { model | difficulty = Maybe.withDefault model.difficulty <| String.toInt difficulty }, Cmd.none )
 
         ClickCell cell ->
-            (model, Cmd.map MinefieldMsg <| Minefield.clickCell cell model.field )
+            ( model
+            , Minefield.clickCell (mineGenerator model.difficulty) cell model.field
+                |> Cmd.map MinefieldMsg 
+            )
 
         NewGame ->
             ( { model | state = FreshGame, field = Minefield.init 10 }, Cmd.none )
@@ -118,13 +124,13 @@ viewCell cell =
             else
                 div [ class "cell" ] [ text <| String.fromInt adjacentMines ]
 
-        -- Hidden hasMine ->
-        --     let
-        --         str = "H" ++ if hasMine then "M" else ""
-        --     in    
-        --     div [ class "cell hidden", onClick <| ClickCell cell ] [ text str]
+        Hidden hasMine ->
+            let
+                str = "H" ++ if hasMine then "M" else ""
+            in    
+            div [ class "cell hidden", onClick <| ClickCell cell ] [ text str]
             
-        -- Fresh ->
-        --     div [ class "cell hidden", onClick <| ClickCell cell ] [ text "F"]
-        _ ->
-            div [ class "cell hidden", onClick <| ClickCell cell ] []
+        Fresh ->
+            div [ class "cell hidden", onClick <| ClickCell cell ] [ text "F"]
+        -- _ ->
+        --     div [ class "cell hidden", onClick <| ClickCell cell ] []
