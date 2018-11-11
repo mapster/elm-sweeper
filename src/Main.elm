@@ -1,5 +1,3 @@
-module Main exposing (Msg(..), clickCell, init, initCmd, main, subscriptions, update, updateAndCache, view, viewCell, viewField, viewRow, viewState)
-
 import Browser exposing (Document, document)
 import Cache
 import GameModel exposing (..)
@@ -7,7 +5,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
-import Minefield exposing (Cell, Content(..), Minefield, isFresh)
+import Minefield exposing (Cell, Content(..), Minefield)
 import Random
 
 
@@ -34,10 +32,10 @@ subscriptions model =
 
 type Msg
     = ClickCell Cell
-    | InitCell Cell Float
     | NewGame
     | Difficulty String
     | LoadFromCache (Result Decode.Error GameModel)
+    | MinefieldMsg Minefield.Msg
 
 
 updateAndCache : Msg -> GameModel -> ( GameModel, Cmd Msg )
@@ -56,39 +54,7 @@ update msg model =
             ( { model | difficulty = Maybe.withDefault model.difficulty <| String.toInt difficulty }, Cmd.none )
 
         ClickCell cell ->
-            let
-                initAdjacent = 
-                    Minefield.adjacent cell model.field
-                        |> List.filter isFresh
-                        |> List.map initCmd
-                        |> Cmd.batch
-            in
-            case cell.content of
-                Fresh ->
-                    case model.state of
-                        FreshGame ->
-                            ( updateModel model { cell | content = Visible False}, initAdjacent )
-
-                        _ ->
-                            ( model, Cmd.batch [(initCmd { cell | content = Visible False }), initAdjacent] )
-
-                Hidden hasMine ->
-                    ( updateModel model { cell | content = Visible hasMine } , initAdjacent )
-
-                Visible _ ->
-                    ( model, Cmd.none )
-
-        InitCell cell rnJesus ->
-            let
-                isMine =
-                    rnJesus <= toFloat model.difficulty / 100
-            in
-            case cell.content of
-                Visible _ ->
-                    ( updateModel model { cell | content = Visible isMine } , Cmd.none)
-
-                _ ->
-                    ( updateModel model { cell | content = Hidden isMine } , Cmd.none )
+            (model, Cmd.map MinefieldMsg <| Minefield.clickCell cell model.field )
 
         NewGame ->
             ( { model | state = FreshGame, field = Minefield.init 10 }, Cmd.none )
@@ -100,40 +66,9 @@ update msg model =
 
                 Err _ ->
                     ( model, Cmd.none )
-
-updateModel : GameModel -> Cell -> GameModel
-updateModel model cell =
-    let 
-        field = Minefield.replace cell model.field
-        state =
-            case cell.content of
-                Visible True ->
-                    GameOver
-                
-                _ -> 
-                    model.state
-    in
-    {model | field = field, state = state}
-
--- Create command to fetch a random value and send an InitCell message
-initCmd : Cell -> Cmd Msg
-initCmd cell =
-    Random.generate (InitCell cell) (Random.float 0 1)
-
-
-clickCell : Cell -> Cell
-clickCell cell =
-    case cell.content of
-        Fresh ->
-            { cell | content = Visible False }
-
-        Hidden hasMine ->
-            { cell | content = Visible hasMine }
-
-        Visible _ ->
-            cell
-
-
+            
+        MinefieldMsg fieldMsg ->
+            ( { model | field = Minefield.update fieldMsg model.field }, Cmd.none)
 
 -- View
 
@@ -167,24 +102,27 @@ viewState state =
 
 
 viewField field =
-    div [] (List.map (viewRow field) <| Minefield.rows field)
+    div [] (List.map viewRow <| Minefield.rows field)
 
 
-viewRow field row =
-    div [ class "row" ] (List.map (viewCell field) row)
+viewRow row =
+    div [ class "row" ] (List.map viewCell row)
 
 
-viewCell field cell =
+viewCell cell =
     case cell.content of
-        Visible hasMine ->
+        Visible hasMine adjacentMines ->
             if hasMine then
                 div [ class "cell mine" ] []
 
             else
-                div [ class "cell" ] [ text <| String.fromInt <| Minefield.adjacentMines cell field ]
+                div [ class "cell" ] [ text <| String.fromInt adjacentMines ]
 
-        -- Hidden _ ->
-        --     div [ class "cell hidden", onClick <| ClickCell cell ] [ text "H"]
+        -- Hidden hasMine ->
+        --     let
+        --         str = "H" ++ if hasMine then "M" else ""
+        --     in    
+        --     div [ class "cell hidden", onClick <| ClickCell cell ] [ text str]
             
         -- Fresh ->
         --     div [ class "cell hidden", onClick <| ClickCell cell ] [ text "F"]
