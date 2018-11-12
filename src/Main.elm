@@ -127,13 +127,13 @@ viewCell cell =
             else
                 div [ class "cell" ] [ text <| String.fromInt adjacentMines ]
 
-        Hidden hasMine ->
-            let
-                str = "H" ++ if hasMine then "M" else ""
-            in    
-            div [ class "cell hidden", onClick <| ClickCell cell ] [ text str]
+        -- Hidden hasMine ->
+        --     let
+        --         str = "H" ++ if hasMine then "M" else ""
+        --     in    
+        --     div [ class "cell hidden", onClick <| ClickCell cell ] [ text str]
             
-        Fresh ->
-            div [ class "cell hidden", onClick <| ClickCell cell ] [ text "F"]
-        -- _ ->
-        --     div [ class "cell hidden", onClick <| ClickCell cell ] []
+        -- Fresh ->
+        --     div [ class "cell hidden", onClick <| ClickCell cell ] [ text "F"]
+        _ ->
+            div [ class "cell hidden", onClick <| ClickCell cell ] []
