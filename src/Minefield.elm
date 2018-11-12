@@ -11,6 +11,8 @@ adjacentRel =
 type alias Minefield =
     Array (Array Cell)
 
+type alias MineGenerator =
+    Random.Generator Bool
 
 type alias Cell =
     { content : Content
@@ -39,11 +41,11 @@ rows field =
     Array.map Array.toList field
         |> Array.toList
 
-clickCell : Random.Generator Bool -> Cell -> Minefield -> Cmd Msg
-clickCell mineGenerator cell field =
+clickCell : MineGenerator -> Minefield -> Cell -> Cmd Msg
+clickCell mineGenerator field cell =
     let
         adjacentFresh = 
-            adjacent cell field
+            adjacent field cell
                 |> List.filter isFresh
 
         adjacentGenerator = Random.list (List.length adjacentFresh) mineGenerator
@@ -69,19 +71,32 @@ update2 updateCell freshCells freshCellsRnJesus field =
             List.map2 asHidden freshCells freshCellsRnJesus
                 |> replaceAll field
     in
-        replace (updateCell updField) updField
+    replace (updateCell updField) updField
 
-update : Msg -> Minefield -> Minefield
-update msg field =
-    case msg of
-        ClickFirstCell clickedCell freshCells freshCellsRnJesus ->
-            update2 ( asVisible clickedCell False) freshCells freshCellsRnJesus field
+update : MineGenerator -> Msg -> Minefield -> (Minefield, Cmd Msg)
+update mineGenerator msg field =
+    let
+        updField =
+            case msg of
+                ClickFirstCell clickedCell freshCells freshCellsRnJesus ->
+                    update2 ( asVisible clickedCell False) freshCells freshCellsRnJesus field
 
-        ClickFreshCell clickedCell freshCells ( clickedRnJesus, freshCellsRnJesus ) ->
-            update2 ( asVisible clickedCell clickedRnJesus ) freshCells freshCellsRnJesus field
+                ClickFreshCell clickedCell freshCells ( clickedRnJesus, freshCellsRnJesus ) ->
+                    update2 ( asVisible clickedCell clickedRnJesus ) freshCells freshCellsRnJesus field
 
-        ClickHiddenCell clickedCell freshCells freshCellsRnJesus ->
-            update2 ( asVisible clickedCell ( isMine clickedCell ) ) freshCells freshCellsRnJesus field
+                ClickHiddenCell clickedCell freshCells freshCellsRnJesus ->
+                    update2 ( asVisible clickedCell ( isMine clickedCell ) ) freshCells freshCellsRnJesus field
+        
+        clickCmd =
+            filter isZero updField
+                |> List.map (adjacent updField)
+                |> List.concat
+                |> List.filter isHidden
+                |> List.head
+                |> Maybe.map (clickCell mineGenerator updField)
+                |> Maybe.withDefault Cmd.none
+    in
+    (updField, clickCmd)
 
 asHidden : Cell -> Bool -> Cell
 asHidden cell hasMine =
@@ -113,6 +128,7 @@ replace cell field =
         Nothing ->
             field
 
+isFresh : Cell -> Bool
 isFresh cell =
     case cell.content of
         Fresh ->
@@ -121,6 +137,7 @@ isFresh cell =
         _ ->
             False
 
+isMine : Cell -> Bool
 isMine cell =
     case cell.content of
         Fresh ->
@@ -132,19 +149,37 @@ isMine cell =
         Visible hasMine _ ->
             hasMine
 
+isHidden : Cell -> Bool
+isHidden cell =
+    case cell.content of
+        Hidden _ ->
+            True
+        
+        _ -> 
+            False
+
+isZero : Cell -> Bool
+isZero cell =
+    case cell.content of
+        Visible _ 0 ->
+            True
+
+        _ ->
+            False
+
 get field ( r, c ) =
     Array.get r field
         |> andThen (Array.get c)
 
-adjacent : Cell -> Minefield -> List Cell
-adjacent cell field =
+adjacent : Minefield -> Cell -> List Cell
+adjacent field cell =
     List.map (\( r, c ) -> ( cell.row + r, cell.col + c )) adjacentRel
         |> List.filterMap (get field)
 
 
 adjacentMines : Cell -> Minefield -> Int
 adjacentMines cell field =
-    adjacent cell field
+    adjacent field cell 
         |> List.filter isMine
         |> List.length
 
@@ -153,3 +188,9 @@ all predicate field =
     rows field
         |> List.concat
         |> List.all predicate
+
+filter : (Cell -> Bool) -> Minefield -> List Cell
+filter predicate field =
+    rows field
+        |> List.concat
+        |> List.filter predicate

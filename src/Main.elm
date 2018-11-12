@@ -46,8 +46,8 @@ updateAndCache msg model =
     in
     ( newModel, Cmd.batch [ cmd, Cache.cacheModel newModel ] )
 
-mineGenerator : Int -> Random.Generator Bool
-mineGenerator difficulty =
+mineGenerator : GameModel -> Random.Generator Bool
+mineGenerator { difficulty} =
     Random.weighted (toFloat difficulty, True) [ ( toFloat <| 100 - difficulty, False) ]
 
 update : Msg -> GameModel -> ( GameModel, Cmd Msg )
@@ -56,9 +56,9 @@ update msg model =
         Difficulty difficulty ->
             ( { model | difficulty = Maybe.withDefault model.difficulty <| String.toInt difficulty }, Cmd.none )
 
-        ClickCell cell ->
+        ClickCell cell ->                    
             ( model
-            , Minefield.clickCell (mineGenerator model.difficulty) cell model.field
+            , Minefield.clickCell (mineGenerator model) model.field cell
                 |> Cmd.map MinefieldMsg 
             )
 
@@ -74,7 +74,10 @@ update msg model =
                     ( model, Cmd.none )
             
         MinefieldMsg fieldMsg ->
-            ( { model | field = Minefield.update fieldMsg model.field }, Cmd.none)
+            let
+                (field, cmd) = Minefield.update (mineGenerator model) fieldMsg model.field
+            in
+            ( { model | field = field }, Cmd.map MinefieldMsg cmd)
 
 -- View
 
