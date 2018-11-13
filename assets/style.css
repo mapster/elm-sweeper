@@ -3,8 +3,8 @@
 }
 
 .cell {
-    width: 20px;
-    height: 20px;
+    width: 30px;
+    height: 30px;
     border: lightgrey solid thin;
     text-align: center;
 }

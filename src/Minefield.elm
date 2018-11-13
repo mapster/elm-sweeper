@@ -1,4 +1,4 @@
-module Minefield exposing (Cell, Content(..), Minefield, init, rows, clickCell, Msg, update)
+module Minefield exposing (Cell, Content(..), Minefield, init, rows, toggleFlag, clickCell, Msg, update)
 
 import Array exposing (Array)
 import Maybe exposing (andThen)
@@ -25,6 +25,7 @@ type Content
     = Fresh
     | Hidden Bool
     | Visible Bool Int
+    | Flag Content
 
 type Msg
     = ClickFreshCell Cell (List Cell) (Bool, List Bool)
@@ -41,6 +42,15 @@ rows field =
     Array.map Array.toList field
         |> Array.toList
 
+toggleFlag : Minefield -> Cell -> Minefield
+toggleFlag field cell =
+    case cell.content of
+        Flag content ->
+            replace { cell | content = content } field
+
+        _ ->
+            replace { cell | content = Flag cell.content } field
+
 clickCell : MineGenerator -> Minefield -> Cell -> Cmd Msg
 clickCell mineGenerator field cell =
     let
@@ -50,10 +60,7 @@ clickCell mineGenerator field cell =
 
         adjacentGenerator = Random.list (List.length adjacentFresh) mineGenerator
     in
-    case cell.content of
-        Visible _ _ ->
-            Cmd.none
-        
+    case cell.content of        
         Hidden _ ->
             Random.generate (ClickHiddenCell cell adjacentFresh) adjacentGenerator
 
@@ -63,6 +70,9 @@ clickCell mineGenerator field cell =
             else
                 Random.pair mineGenerator adjacentGenerator
                     |> Random.generate (ClickFreshCell cell adjacentFresh)
+
+        _ ->
+            Cmd.none
 
 update2 : (Minefield -> Cell) -> List Cell -> List Bool -> Minefield -> Minefield
 update2 updateCell freshCells freshCellsRnJesus field =
@@ -148,6 +158,9 @@ isMine cell =
 
         Visible hasMine _ ->
             hasMine
+
+        Flag content ->
+            isMine { cell | content = content }
 
 isHidden : Cell -> Bool
 isHidden cell =

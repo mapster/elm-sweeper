@@ -42,7 +42,7 @@ encodeState state =
 
 modelDecoder : Decode.Decoder GameModel
 modelDecoder =
-    Decode.map3 GameModel
+    Decode.map3 (GameModel initMouse)
         (Decode.field "state" stateDecoder)
         (Decode.field "difficulty" Decode.int)
         (Decode.field "field" minefieldDecoder)
@@ -108,6 +108,9 @@ encodeContent content =
                     ]
                   )
                 ]
+        Flag flagContent ->
+            Encode.object
+                [ ("Flag", encodeContent flagContent)]
 
 minefieldDecoder : Decode.Decoder Minefield
 minefieldDecoder =
@@ -126,7 +129,7 @@ cellDecoder =
 
 contentDecoder : Decode.Decoder Content
 contentDecoder =
-    Decode.oneOf [ freshDecoder, hiddenDecoder, visibleDecoder ]
+    Decode.oneOf [ freshDecoder, hiddenDecoder, visibleDecoder, flagDecoder ]
 
 freshDecoder : Decode.Decoder Content
 freshDecoder =
@@ -151,3 +154,8 @@ visibleDecoder =
     Decode.map2 Visible
         (Decode.at ["Visible", "hasMine"] Decode.bool)
         (Decode.at ["Visible", "adjacentMines"] Decode.int)
+
+flagDecoder : Decode.Decoder Content
+flagDecoder =
+    Decode.map Flag
+        (Decode.field "Flag" <| Decode.lazy (\_ -> contentDecoder))
